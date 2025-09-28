@@ -21,6 +21,20 @@
 
     html, body { height: 100%; }
 
+    #glitter {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0; /* di belakang konten */
+        pointer-events: none;
+        }
+        header, section, nav, footer {
+        position: relative;
+        z-index: 1;
+        }
+
+
     body {
       margin: 0 auto;
       font-family: 'Manrope', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -197,7 +211,7 @@
   </style>
 </head>
 <body>
-
+    <canvas id="glitter"></canvas>
   <nav class="nav" aria-label="Primary">
     <div class="brand">A&J Wedding</div>
     <div class="nav-links" aria-hidden="false">
@@ -359,6 +373,53 @@
     buildDots();
     go(0);
     requestAnimationFrame(()=>{ track.style.transition = 'transform .6s ease'; autoplay(); });
+
+    // ===== Glitter background =====
+const canvas = document.getElementById('glitter');
+const ctx = canvas.getContext('2d');
+let w, h, particles = [];
+
+function resize(){
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function initParticles(){
+  particles = [];
+  for(let i=0; i<80; i++){
+    particles.push({
+      x: Math.random()*w,
+      y: Math.random()*h,
+      r: Math.random()*2 + 0.5,
+      dx: (Math.random()-0.5)*0.3,
+      dy: (Math.random()-0.5)*0.3,
+      alpha: Math.random()
+    });
+  }
+}
+initParticles();
+
+function animate(){
+  ctx.clearRect(0,0,w,h);
+  particles.forEach(p=>{
+    p.x += p.dx;
+    p.y += p.dy;
+    p.alpha += (Math.random()-0.5)*0.05;
+    if(p.alpha<0) p.alpha=0; if(p.alpha>1) p.alpha=1;
+    if(p.x<0||p.x>w) p.dx*=-1;
+    if(p.y<0||p.y>h) p.dy*=-1;
+
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255,255,200,${p.alpha})`;
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  requestAnimationFrame(animate);
+}
+animate();
+
   </script>
 </body>
 </html>
