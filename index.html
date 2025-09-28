@@ -16,6 +16,7 @@
       --nav-h: 64px;
       --glass-bg: rgba(255,255,255,0.14);
       --glass-brd: rgba(255,255,255,0.22);
+      --slide-gap: 20px; /* must match margin below */
     }
 
     html, body { height: 100%; }
@@ -172,11 +173,21 @@
 
     .map iframe { border: 0; width: 100%; max-width: 640px; height: 320px; border-radius: 12px; }
 
-    .schedule, .about, .gallery { max-width: 760px; margin: 0 auto; }
+    .schedule, .about { max-width: 760px; margin: 0 auto; }
     .schedule p, .about p { margin: 10px 0; }
 
-    .gallery{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:16px; }
-    .gallery img { width: 100%; max-width: 300px; border-radius: 12px; display:block; }
+    /* ===== Carousel Gallery with preview ===== */
+    .gallery { max-width: 960px; margin: 0 auto; }
+    .carousel { position: relative; overflow: hidden; border-radius: 14px; padding: 0 0; }
+    .carousel .track { display: flex; transition: transform .6s ease; will-change: transform; }
+    .carousel .slide { flex: 0 0 80%; margin: 0 10px; border-radius: 12px; overflow:hidden; height: 260px; }
+    .carousel img { width: 100%; height: 100%; object-fit: cover; display:block; }
+    .carousel .dots { display:flex; gap:8px; justify-content:center; margin-top:12px; }
+    .carousel .dot { width:6px; height:6px; border-radius:50%; background:#666; opacity:.6; }
+    .carousel .dot.active { background:#fff; opacity:1; }
+
+    @media(min-width:768px){ .carousel .slide{ height: 380px; } }
+    @media(max-width:767px){ .carousel .slide{ flex: 0 0 90%; } }
 
     form { max-width: 640px; margin: 24px auto; display: flex; flex-direction: column; gap: 12px; }
     input, textarea, button { padding: 12px 14px; border: 1px solid #3a3a3a; border-radius: 8px; color:#fff; background:#1b1b1b; }
@@ -188,7 +199,7 @@
 <body>
 
   <nav class="nav" aria-label="Primary">
-    <div class="brand"> A&J Wedding </div>
+    <div class="brand">Wedding</div>
     <div class="nav-links" aria-hidden="false">
       <a href="#home">Home</a>
       <a href="#about">About Us</a>
@@ -244,8 +255,16 @@
 
   <section id="gallery" class="gallery">
     <h2>Gallery</h2>
-    <img src="https://via.placeholder.com/300x200" alt="Gallery 1">
-    <img src="https://via.placeholder.com/300x200" alt="Gallery 2">
+    <div class="carousel" aria-roledescription="carousel">
+      <div class="track">
+        <div class="slide"><img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1600&auto=format&fit=crop" alt="Holding hands"></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1522673607200-164d1b6ce486?q=80&w=1600&auto=format&fit=crop" alt="Bride with bouquet"></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?q=80&w=1600&auto=format&fit=crop" alt="Wedding rings"></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1600&auto=format&fit=crop" alt="Wedding cake"></div>
+        <div class="slide"><img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop" alt="Sunset couple"></div>
+      </div>
+      <div class="dots" aria-hidden="true"></div>
+    </div>
   </section>
 
   <section id="wishes" class="wishes">
@@ -262,34 +281,75 @@
   </footer>
 
   <script>
+    // ===== mobile nav =====
     const hamburger = document.querySelector('.hamburger');
     const panel = document.getElementById('mobileMenu');
     const body = document.body;
-
-    function closeMenu(){
-      hamburger.classList.remove('open');
-      hamburger.setAttribute('aria-expanded','false');
-      panel.classList.remove('open');
-      body.style.overflow='';
-    }
-
-    function openMenu(){
-      hamburger.classList.add('open');
-      hamburger.setAttribute('aria-expanded','true');
-      panel.classList.add('open');
-      body.style.overflow='hidden';
-    }
-
-    hamburger.addEventListener('click', ()=>{
-      const isOpen = hamburger.classList.contains('open');
-      isOpen ? closeMenu() : openMenu();
-    });
-
-    // close on nav click (mobile)
+    function closeMenu(){ hamburger.classList.remove('open'); hamburger.setAttribute('aria-expanded','false'); panel.classList.remove('open'); body.style.overflow=''; }
+    function openMenu(){ hamburger.classList.add('open'); hamburger.setAttribute('aria-expanded','true'); panel.classList.add('open'); body.style.overflow='hidden'; }
+    hamburger.addEventListener('click', ()=>{ const isOpen = hamburger.classList.contains('open'); isOpen ? closeMenu() : openMenu(); });
     panel.querySelectorAll('a').forEach(a=> a.addEventListener('click', closeMenu));
-
-    // optional: close on ESC
     window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
+
+    // ===== Carousel with preview (center active, show peeks) =====
+    const container = document.querySelector('.carousel');
+    const track = document.querySelector('.carousel .track');
+    const slides = Array.from(document.querySelectorAll('.carousel .slide'));
+    const dotsWrap = document.querySelector('.carousel .dots');
+
+    let index = 0, timer;
+
+    function buildDots(){
+      dotsWrap.innerHTML = '';
+      slides.forEach((_, i)=>{
+        const d = document.createElement('div');
+        d.className = 'dot' + (i===index ? ' active' : '');
+        d.addEventListener('click', ()=>{ go(i); restartAutoplay(); });
+        dotsWrap.appendChild(d);
+      });
+    }
+
+    function updateDots(){
+      dotsWrap.querySelectorAll('.dot').forEach((d,i)=>{
+        d.classList.toggle('active', i===index);
+      });
+    }
+
+    function centeredOffset(){
+      const slideW = slides[0].getBoundingClientRect().width + parseInt(getComputedStyle(document.documentElement).getPropertyValue('--slide-gap'));
+      const contW = container.clientWidth;
+      const offset = index * slideW - (contW - slideW) / 2; // center active slide
+      return Math.max(0, offset); // clamp so first slide doesn't overshoot right
+    }
+
+    function go(to){
+      index = (to + slides.length) % slides.length;
+      const x = centeredOffset();
+      track.style.transform = `translateX(-${x}px)`;
+      updateDots();
+    }
+
+    function autoplay(){ timer = setInterval(()=> go(index+1), 3000); }
+    function stopAutoplay(){ clearInterval(timer); }
+    function restartAutoplay(){ stopAutoplay(); autoplay(); }
+
+    // pause on hover (desktop)
+    container.addEventListener('mouseenter', stopAutoplay);
+    container.addEventListener('mouseleave', restartAutoplay);
+
+    // swipe support
+    let startX = 0;
+    container.addEventListener('touchstart', (e)=>{ startX = e.touches[0].clientX; stopAutoplay(); }, {passive:true});
+    container.addEventListener('touchend', (e)=>{ const dx = e.changedTouches[0].clientX - startX; if(Math.abs(dx) > 40){ dx<0 ? go(index+1) : go(index-1); } restartAutoplay(); });
+
+    // handle resize to keep centering
+    window.addEventListener('resize', ()=>{ track.style.transition = 'none'; go(index); requestAnimationFrame(()=> track.style.transition = 'transform .6s ease'); });
+
+    // init
+    track.style.transition = 'none';
+    buildDots();
+    go(0);
+    requestAnimationFrame(()=>{ track.style.transition = 'transform .6s ease'; autoplay(); });
   </script>
 </body>
 </html>
